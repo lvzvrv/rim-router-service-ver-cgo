@@ -1,17 +1,22 @@
 package main
 
 import (
+	"database/sql"
 	"flag"
 	"net/http"
 	"os"
 	"time"
 
 	"your-app/internal/handlers"
+	myMiddleware "your-app/internal/middleware"
+	"your-app/internal/models"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog"
 	"gopkg.in/natefinch/lumberjack.v2"
+
+	_ "modernc.org/sqlite" // драйвер без CGO
 )
 
 var (
@@ -26,28 +31,50 @@ func main() {
 	logger := setupLogger()
 	defer logger.Info().Msg("Server shutdown")
 
+	// Initialize database - ИЗМЕНИЛИ "sqlite3" на "sqlite"
+	db, err := sql.Open("sqlite", "./data.db") // ← ИЗМЕНЕНИЕ ЗДЕСЬ
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to open database")
+	}
+	defer db.Close()
+
+	// Run migrations
+	if err := runMigrations(db); err != nil {
+		logger.Fatal().Err(err).Msg("Migrations failed")
+	}
+
+	// Initialize repositories
+	userRepo := models.NewUserRepository(db)
+
+	// Initialize handlers
+	authHandler := handlers.NewAuthHandler(userRepo)
+
 	// Initialize router
 	r := chi.NewRouter()
 
-	// Basic middleware
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Recoverer)
-	r.Use(zerologMiddleware(logger)) // Наш кастомный логгер
+	// Middleware
+	r.Use(chimiddleware.RequestID)
+	r.Use(chimiddleware.RealIP)
+	r.Use(chimiddleware.Recoverer)
+	r.Use(chimiddleware.Timeout(60 * time.Second))
+	r.Use(zerologMiddleware(logger))
 
-	// Health check
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"ok": true, "message": "server is running"}`))
-	})
+	// Public routes
+	r.Get("/health", handlers.HealthHandler)
+	r.Post("/api/v1/register", authHandler.Register)
+	r.Post("/api/v1/login", authHandler.Login)
 
-	// API routes v1
+	// Protected routes (require authentication)
 	r.Route("/api/v1", func(r chi.Router) {
+		r.Use(myMiddleware.AuthMiddleware)
 		r.Get("/softwareVer", handlers.GetSoftwareVer)
 	})
 
-	// API routes v2
+	// Admin routes (require admin role)
 	r.Route("/api/v2", func(r chi.Router) {
+		r.Use(myMiddleware.AuthMiddleware)
+		r.Use(myMiddleware.RoleMiddleware(1)) // Только админы (role >= 1)
+
 		r.Post("/startTir", handlers.StartTir)
 		r.Post("/stopTir", handlers.StopTir)
 		r.Post("/restartTir", handlers.RestartTir)
@@ -102,7 +129,7 @@ func zerologMiddleware(logger zerolog.Logger) func(next http.Handler) http.Handl
 			start := time.Now()
 
 			// Создаем ResponseWriter для отслеживания статуса
-			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+			ww := chimiddleware.NewWrapResponseWriter(w, r.ProtoMajor)
 			next.ServeHTTP(ww, r)
 
 			// Логируем информацию о запросе
@@ -115,4 +142,19 @@ func zerologMiddleware(logger zerolog.Logger) func(next http.Handler) http.Handl
 				Msg("request")
 		})
 	}
+}
+
+func runMigrations(db *sql.DB) error {
+	// Простая миграция для демо - в продакшене используйте github.com/golang-migrate/migrate
+	_, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS users (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			username TEXT UNIQUE NOT NULL,
+			password_hash TEXT NOT NULL,
+			role INTEGER NOT NULL DEFAULT 0,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);
+		CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+	`)
+	return err
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/rs/zerolog/log"
 )
@@ -41,6 +42,18 @@ func sendJSON(w http.ResponseWriter, code int, message string, data interface{})
 	}
 
 	w.Write(jsonBytes)
+}
+
+func HealthHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	response := map[string]interface{}{
+		"ok":      true,
+		"message": "server is running",
+		"ts":      time.Now().UnixMilli(),
+	}
+
+	json.NewEncoder(w).Encode(response)
 }
 
 func GetSoftwareVer(w http.ResponseWriter, r *http.Request) {
