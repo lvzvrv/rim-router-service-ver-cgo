@@ -1,0 +1,24 @@
+{"level":"info","port":"8080","time":"2025-10-08T11:04:41+04:00","message":"Starting server"}
+{"level":"fatal","error":"listen tcp :8080: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted.","time":"2025-10-08T11:04:41+04:00","message":"Server failed"}
+{"level":"info","port":"8080","time":"2025-10-08T11:04:56+04:00","message":"Starting server"}
+{"level":"fatal","error":"listen tcp :8080: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted.","time":"2025-10-08T11:04:56+04:00","message":"Server failed"}
+{"level":"info","port":"8080","time":"2025-10-08T11:07:16+04:00","message":"Starting server"}
+{"level":"info","method":"GET","url":"/health","status":200,"size":44,"duration":0,"time":"2025-10-08T11:10:39+04:00","message":"request"}
+{"level":"info","method":"GET","url":"/api/v1/softwareVer","status":200,"size":54,"duration":0.0859,"time":"2025-10-08T11:10:39+04:00","message":"request"}
+{"level":"info","method":"POST","url":"/api/v2/startTir","status":200,"size":63,"duration":0,"time":"2025-10-08T11:10:39+04:00","message":"request"}
+{"level":"info","method":"POST","url":"/api/v2/startTir","status":400,"size":55,"duration":0,"time":"2025-10-08T11:10:39+04:00","message":"request"}
+{"level":"info","method":"POST","url":"/api/v2/stopTir","status":200,"size":69,"duration":0.5527,"time":"2025-10-08T11:10:39+04:00","message":"request"}
+{"level":"info","method":"POST","url":"/api/v2/restartTir","status":200,"size":71,"duration":0.8873,"time":"2025-10-08T11:10:39+04:00","message":"request"}
+{"level":"info","port":"8080","time":"2025-10-08T11:17:57+04:00","message":"Starting server"}
+{"level":"info","method":"GET","url":"/health","status":200,"size":44,"duration":0,"time":"2025-10-08T11:18:54+04:00","message":"request"}
+{"level":"info","method":"GET","url":"/api/v1/softwareVer","status":200,"size":50,"duration":0,"time":"2025-10-08T11:18:54+04:00","message":"request"}
+{"level":"info","method":"POST","url":"/api/v2/startTir","status":200,"size":61,"duration":0,"time":"2025-10-08T11:18:54+04:00","message":"request"}
+{"level":"info","method":"POST","url":"/api/v2/startTir","status":400,"size":53,"duration":0,"time":"2025-10-08T11:18:54+04:00","message":"request"}
+{"level":"info","method":"POST","url":"/api/v2/stopTir","status":200,"size":67,"duration":0,"time":"2025-10-08T11:18:54+04:00","message":"request"}
+{"level":"info","method":"POST","url":"/api/v2/restartTir","status":200,"size":69,"duration":0,"time":"2025-10-08T11:18:54+04:00","message":"request"}
+{"level":"info","method":"GET","url":"/health","status":200,"size":44,"duration":0,"time":"2025-10-08T11:20:27+04:00","message":"request"}
+{"level":"info","method":"GET","url":"/api/v1/softwareVer","status":200,"size":50,"duration":0,"time":"2025-10-08T11:20:27+04:00","message":"request"}
+{"level":"info","method":"POST","url":"/api/v2/startTir","status":200,"size":61,"duration":0,"time":"2025-10-08T11:20:27+04:00","message":"request"}
+{"level":"info","method":"POST","url":"/api/v2/startTir","status":400,"size":53,"duration":0,"time":"2025-10-08T11:20:27+04:00","message":"request"}
+{"level":"info","method":"POST","url":"/api/v2/stopTir","status":200,"size":67,"duration":0,"time":"2025-10-08T11:20:27+04:00","message":"request"}
+{"level":"info","method":"POST","url":"/api/v2/restartTir","status":200,"size":69,"duration":0,"time":"2025-10-08T11:20:27+04:00","message":"request"}
