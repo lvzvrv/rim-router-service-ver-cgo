@@ -5,7 +5,6 @@
 *.so
 *.dylib
 *.app
-*.db
 
 # Test binary, built with `go test -c`
 *.test
@@ -61,3 +60,19 @@ config.local.*
 /dist/
 /build/
 /out/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+*.mdb
+*.accdb
+
+# Database backups
+*.backup
+*.dump
+
+# Environment specific databases
+/staging.db
+/production.db
+/development.db
