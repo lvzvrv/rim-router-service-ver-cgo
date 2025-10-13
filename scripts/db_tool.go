@@ -1,3 +1,5 @@
+//go:build ignore
+
 package main
 
 import (
@@ -6,22 +8,22 @@ import (
 	"log"
 	"os"
 
+	_ "github.com/mattn/go-sqlite3" // Используем CGO-драйвер
 	"golang.org/x/crypto/bcrypt"
-	_ "modernc.org/sqlite"
 )
 
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("Usage:")
 		fmt.Println("  go run scripts/db_tool.go list-users")
-		fmt.Println("  go run scripts/db_tool.exe create-admin <username> <password>")
-		fmt.Println("  go run scripts/db_tool.exe sql \"SELECT * FROM users\"")
+		fmt.Println("  go run scripts/db_tool.go create-admin <username> <password>")
+		fmt.Println("  go run scripts/db_tool.go sql \"SELECT * FROM users\"")
 		os.Exit(1)
 	}
 
 	command := os.Args[1]
 
-	db, err := sql.Open("sqlite", "./data.db")
+	db, err := sql.Open("sqlite3", "./data.db")
 	if err != nil {
 		log.Fatal("Failed to open database:", err)
 	}
@@ -87,18 +89,15 @@ func listUsers(db *sql.DB) {
 }
 
 func createAdmin(db *sql.DB, username, password string) {
-	// Хэшируем пароль
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		log.Fatal("Failed to hash password:", err)
 	}
 
-	// Создаем или обновляем администратора
 	_, err = db.Exec(
 		"INSERT OR REPLACE INTO users (username, password_hash, role) VALUES (?, ?, ?)",
 		username, string(hashedPassword), 1,
 	)
-
 	if err != nil {
 		log.Fatal("Failed to create admin user:", err)
 	}
@@ -118,7 +117,7 @@ func executeSQL(db *sql.DB, query string) {
 		log.Fatal("Failed to get columns:", err)
 	}
 
-	// Выводим заголовки
+	// Заголовки
 	for i, col := range columns {
 		if i > 0 {
 			fmt.Print(" | ")
@@ -128,7 +127,6 @@ func executeSQL(db *sql.DB, query string) {
 	fmt.Println()
 	fmt.Println("---------------------------------")
 
-	// Читаем данные
 	values := make([]interface{}, len(columns))
 	valuePtrs := make([]interface{}, len(columns))
 	for i := range values {

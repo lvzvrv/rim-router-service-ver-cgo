@@ -1,78 +1,58 @@
-# Binaries for programs and plugins
+# ---> Go
+# Скомпилированные бинарники
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
-*.app
-
-# Test binary, built with `go test -c`
 *.test
 
-# Output of the go coverage tool
-*.out
-
-# Dependency directories
-vendor/
-/node_modules/
-
-# Go workspace file
-go.work
-go.worksum
-
-# IDE and editor files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Logs
-logs/
-*.log
-
-# Environment files
-.env
-.env.local
-.env.*.local
-
-# Temporary files
-tmp/
-temp/
-*.tmp
-
-# Configuration files (if you have local configs)
-config.local.*
-*.local.yaml
-*.local.yml
-*.local.json
-
-# Build artifacts
-/dist/
+# Папки с бинарниками
+/bin/
 /build/
+/dist/
 /out/
 
-# Database files
+# Кэш Go модулей и тестов
+/vendor/
+/*.out
+*.log
+*.tmp
+*.swp
+*.bak
+*.local
+
+# Go модульные артефакты
+*.sum
+*.mod~
+
+# IDE / редакторы
+.vscode/
+.idea/
+*.iml
+
+# OS файлы
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# SQLite файлы
 *.db
-*.sqlite
-*.sqlite3
-*.mdb
-*.accdb
+*.db-journal
+*.db-shm
+*.db-wal
 
-# Database backups
-*.backup
-*.dump
+# Логи и временные файлы
+/logs/
+*.log
+*.gz
+*.old
 
-# Environment specific databases
-/staging.db
-/production.db
-/development.db
+# Конфиги (если хочешь держать локальные)
+config.yaml
+.env
+.env.local
+
+# Тестовые файлы и утилиты
+*.coverprofile
+*.out
