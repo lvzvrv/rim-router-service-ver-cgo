@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"time"
 
 	"your-app/internal/config"
@@ -16,10 +18,10 @@ type Claims struct {
 	jwt.StandardClaims
 }
 
-func GenerateToken(user *models.User) (string, error) {
+func GenerateAccessToken(user *models.User) (string, error) {
 	jwtConfig := config.GetJWTConfig()
 
-	expirationTime := time.Now().Add(jwtConfig.Expiration)
+	expirationTime := time.Now().Add(jwtConfig.AccessExpiration)
 	claims := &Claims{
 		UserID:   user.ID,
 		Username: user.Username,
@@ -51,4 +53,13 @@ func ValidateToken(tokenString string) (*Claims, error) {
 	}
 
 	return claims, nil
+}
+
+// Случайная строка длиной 64 символа, 256 бит энтропии
+func GenerateSecureToken() (string, error) {
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(buf), nil
 }

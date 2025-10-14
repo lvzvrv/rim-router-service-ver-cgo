@@ -6,8 +6,9 @@ import (
 )
 
 type JWTConfig struct {
-	Secret     string
-	Expiration time.Duration
+	Secret            string
+	AccessExpiration  time.Duration
+	RefreshExpiration time.Duration
 }
 
 func GetJWTConfig() JWTConfig {
@@ -17,7 +18,8 @@ func GetJWTConfig() JWTConfig {
 	}
 
 	return JWTConfig{
-		Secret:     secret,
-		Expiration: 24 * time.Hour, // 24 часа
+		Secret:            secret,
+		AccessExpiration:  15 * time.Minute,   // access token: 15 минут
+		RefreshExpiration: 7 * 24 * time.Hour, // refresh token: 7 дней
 	}
 }
