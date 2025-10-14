@@ -51,9 +51,13 @@ func main() {
 
 	// Initialize repositories
 	userRepo := models.NewUserRepository(dbConn)
+	tokenRepo := models.NewTokenRepository(dbConn)
+
+	// Create admin user if not exists
+	database.SeedAdmin(userRepo)
 
 	// Initialize handlers
-	authHandler := handlers.NewAuthHandler(userRepo)
+	authHandler := handlers.NewAuthHandler(userRepo, tokenRepo)
 
 	// Initialize router
 	r := chi.NewRouter()
@@ -69,6 +73,8 @@ func main() {
 	r.Get("/health", handlers.HealthHandler)
 	r.Post("/api/v1/register", authHandler.Register)
 	r.Post("/api/v1/login", authHandler.Login)
+	r.Post("/api/v1/refresh", authHandler.Refresh)
+	r.Post("/api/v1/logout", authHandler.Logout)
 
 	// Protected routes (require authentication)
 	r.Route("/api/v1", func(r chi.Router) {
@@ -130,7 +136,6 @@ func zerologMiddleware(logger zerolog.Logger) func(next http.Handler) http.Handl
 }
 
 func runMigrations(db *sql.DB) error {
-	// Простая миграция для демо - в продакшене используйте github.com/golang-migrate/migrate
 	_, err := db.Exec(`
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -140,6 +145,17 @@ func runMigrations(db *sql.DB) error {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+
+        CREATE TABLE IF NOT EXISTS refresh_tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            token TEXT NOT NULL UNIQUE,
+            expires_at DATETIME NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_refresh_user_id ON refresh_tokens(user_id);
+        CREATE INDEX IF NOT EXISTS idx_refresh_token ON refresh_tokens(token);
     `)
 	return err
 }
