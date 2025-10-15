@@ -1,4 +1,4 @@
-module your-app
+module rim-router-service-ver-cgo
 
 go 1.24.0
 
@@ -8,9 +8,8 @@ require (
 	github.com/go-chi/chi/v5 v5.0.10
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/mattn/go-sqlite3 v1.14.32
-	github.com/rs/zerolog v1.31.0
+	github.com/rs/zerolog v1.34.0
 	golang.org/x/crypto v0.14.0
-	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
 require (

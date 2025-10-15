@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"time"
 
-	"your-app/internal/config"
-	"your-app/internal/models"
+	"rim-router-service-ver-cgo/internal/config"
+	"rim-router-service-ver-cgo/internal/models"
 
 	"github.com/golang-jwt/jwt"
 )

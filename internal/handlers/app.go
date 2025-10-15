@@ -14,14 +14,12 @@ var (
 	tirStatusMu sync.RWMutex
 )
 
-// Структура для JSON ответов
 type Response struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
 }
 
-// Правильная функция для отправки JSON ответов
 func sendJSON(w http.ResponseWriter, code int, message string, data interface{}) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(code)
@@ -32,16 +30,14 @@ func sendJSON(w http.ResponseWriter, code int, message string, data interface{})
 		Data:    data,
 	}
 
-	// Правильное кодирование JSON
 	jsonBytes, err := json.Marshal(response)
 	if err != nil {
-		// Fallback на простой JSON если marshaling fails
 		fallback := `{"code": 500, "message": "JSON encoding error"}`
-		w.Write([]byte(fallback))
+		_, _ = w.Write([]byte(fallback))
 		return
 	}
 
-	w.Write(jsonBytes)
+	_, _ = w.Write(jsonBytes)
 }
 
 func HealthHandler(w http.ResponseWriter, r *http.Request) {
@@ -53,49 +49,68 @@ func HealthHandler(w http.ResponseWriter, r *http.Request) {
 		"ts":      time.Now().UnixMilli(),
 	}
 
-	json.NewEncoder(w).Encode(response)
+	logger := log.With().Str("module", "system").Logger()
+	logger.Debug().Msg("Health check")
+
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 func GetSoftwareVer(w http.ResponseWriter, r *http.Request) {
-	log.Info().Str("endpoint", "/api/v1/softwareVer").Msg("Get software version")
+	logger := log.With().
+		Str("module", "system").
+		Str("endpoint", "/api/v1/softwareVer").
+		Logger()
+	(&logger).Info().Msg("Software version requested")
+
 	sendJSON(w, http.StatusOK, "Success", "1.99.999")
 }
 
 func StartTir(w http.ResponseWriter, r *http.Request) {
-	logger := log.With().Str("endpoint", "/api/v2/startTir").Logger()
+	logger := log.With().
+		Str("module", "system").
+		Str("endpoint", "/api/v2/startTir").
+		Logger()
 
 	tirStatusMu.Lock()
 	defer tirStatusMu.Unlock()
 
 	if tirStatus {
-		logger.Warn().Msg("TIR already started")
+		(&logger).Warn().Msg("TIR already started")
 		sendJSON(w, http.StatusBadRequest, "ТИР уже запущен", nil)
 		return
 	}
 
 	tirStatus = true
-	logger.Info().Msg("TIR started successfully")
+	(&logger).Info().Msg("TIR started successfully")
 	sendJSON(w, http.StatusOK, "ТИР успешно запущен", nil)
 }
 
 func StopTir(w http.ResponseWriter, r *http.Request) {
-	logger := log.With().Str("endpoint", "/api/v2/stopTir").Logger()
+	logger := log.With().
+		Str("module", "system").
+		Str("endpoint", "/api/v2/stopTir").
+		Logger()
 
 	tirStatusMu.Lock()
 	defer tirStatusMu.Unlock()
 
 	if !tirStatus {
-		logger.Warn().Msg("TIR not running")
+		(&logger).Warn().Msg("TIR not running")
 		sendJSON(w, http.StatusBadRequest, "ТИР не запущен", nil)
 		return
 	}
 
 	tirStatus = false
-	logger.Info().Msg("TIR stopped successfully")
+	(&logger).Info().Msg("TIR stopped successfully")
 	sendJSON(w, http.StatusOK, "ТИР успешно остановлен", nil)
 }
 
 func RestartTir(w http.ResponseWriter, r *http.Request) {
-	log.Info().Str("endpoint", "/api/v2/restartTir").Msg("TIR restarted")
+	logger := log.With().
+		Str("module", "system").
+		Str("endpoint", "/api/v2/restartTir").
+		Logger()
+	(&logger).Info().Msg("TIR restarted")
+
 	sendJSON(w, http.StatusOK, "ТИР успешно перезапущен", nil)
 }
