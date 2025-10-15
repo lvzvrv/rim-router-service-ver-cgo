@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"your-app/internal/models"
+	"rim-router-service-ver-cgo/internal/models"
 
 	"golang.org/x/crypto/bcrypt"
 )
