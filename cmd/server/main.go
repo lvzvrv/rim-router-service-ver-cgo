@@ -61,24 +61,28 @@ func main() {
 	r.Use(chimiddleware.Timeout(60 * time.Second))
 	r.Use(zerologMiddleware(logger))
 
+	// --- Public endpoints ---
 	r.Get("/health", handlers.HealthHandler)
 	r.Post("/api/v1/register", authHandler.Register)
 	r.Post("/api/v1/login", authHandler.Login)
 	r.Post("/api/v1/refresh", authHandler.Refresh)
 	r.Post("/api/v1/logout", authHandler.Logout)
 
+	// --- Authenticated v1 ---
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(myMiddleware.AuthMiddleware)
 		r.Get("/softwareVer", handlers.GetSoftwareVer)
 	})
 
-	// New log API (admin only)
+	// --- Admin-only v2 (log management) ---
 	r.Route("/api/v2", func(r chi.Router) {
 		r.Use(myMiddleware.AuthMiddleware)
 		r.With(myMiddleware.RoleMiddleware(1)).Group(func(r chi.Router) {
-			r.Get("/log", handlers.GetLogTail)
-			r.Get("/loglist", handlers.GetLogList)
-			r.Get("/log/download", handlers.DownloadLog)
+			// новые, кросс-системные эндпоинты логов
+			r.Get("/logs", handlers.ListAllLogs)
+			r.Get("/logs/download-all", handlers.DownloadAllLogs)
+			r.Get("/logs/download", handlers.DownloadOneLog)
+			r.Get("/logs/tail", handlers.TailUnified)
 		})
 	})
 
@@ -86,6 +90,7 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
+
 	logger.Info().Msgf("Server listening on :%s", port)
 
 	if err := http.ListenAndServe(":"+port, r); err != nil {
@@ -93,6 +98,9 @@ func main() {
 	}
 }
 
+// -----------------------------
+// Logger setup
+// -----------------------------
 func setupLogger() zerolog.Logger {
 	dir := utils.ChooseLogDir()
 
@@ -121,6 +129,9 @@ func setupLogger() zerolog.Logger {
 	return logger
 }
 
+// -----------------------------
+// Middleware for request logging
+// -----------------------------
 func zerologMiddleware(logger zerolog.Logger) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -138,6 +149,9 @@ func zerologMiddleware(logger zerolog.Logger) func(next http.Handler) http.Handl
 	}
 }
 
+// -----------------------------
+// DB Migrations
+// -----------------------------
 func runMigrations(db *sql.DB) error {
 	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS users (
@@ -163,6 +177,9 @@ func runMigrations(db *sql.DB) error {
 	return err
 }
 
+// -----------------------------
+// Config loader
+// -----------------------------
 func loadConfig(path string, logger zerolog.Logger) error {
 	trimmed := strings.TrimSpace(path)
 	if trimmed == "" {
@@ -180,6 +197,7 @@ func loadConfig(path string, logger zerolog.Logger) error {
 		return fmt.Errorf("open config file: %w", err)
 	}
 	defer file.Close()
+
 	logger.Info().Str("config", trimmed).Msg("Using configuration file")
 	return nil
 }
