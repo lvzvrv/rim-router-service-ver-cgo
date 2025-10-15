@@ -1,2 +1,2 @@
-Вес exe файла после прогонки через UPX 2.84 МБ
-Команда: upx --best --lzma <filename>
+Вес exe файла после прогонки через UPX 2.87 МБ
+Команда: upx --best --lzma "filename"
