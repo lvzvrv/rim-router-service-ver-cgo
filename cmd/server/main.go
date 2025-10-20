@@ -52,6 +52,7 @@ func main() {
 	database.SeedAdmin(userRepo)
 
 	authHandler := handlers.NewAuthHandler(userRepo, tokenRepo)
+	adminHandler := handlers.NewAdminHandler(userRepo)
 
 	r := chi.NewRouter()
 
@@ -74,15 +75,19 @@ func main() {
 		r.Get("/softwareVer", handlers.GetSoftwareVer)
 	})
 
-	// --- Admin-only v2 (log management) ---
+	// --- Admin-only v2 (logs, user management, etc.) ---
 	r.Route("/api/v2", func(r chi.Router) {
 		r.Use(myMiddleware.AuthMiddleware)
 		r.With(myMiddleware.RoleMiddleware(1)).Group(func(r chi.Router) {
-			// новые, кросс-системные эндпоинты логов
+			// --- System logs ---
 			r.Get("/logs", handlers.ListAllLogs)
 			r.Get("/logs/download-all", handlers.DownloadAllLogs)
 			r.Get("/logs/download", handlers.DownloadOneLog)
 			r.Get("/logs/tail", handlers.TailUnified)
+
+			// --- User management (admin panel) ---
+			r.Get("/admin/users", adminHandler.ListUsers)
+			r.Post("/admin/users/{id}/role", adminHandler.UpdateUserRole)
 		})
 	})
 

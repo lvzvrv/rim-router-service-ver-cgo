@@ -71,3 +71,28 @@ func (r *UserRepository) AdminExists() (bool, error) {
 	).Scan(&exists)
 	return exists, err
 }
+
+// GetAllUsers возвращает список всех пользователей (без паролей)
+func (r *UserRepository) GetAllUsers() ([]User, error) {
+	rows, err := r.DB.Query(`SELECT id, username, role, created_at FROM users ORDER BY id ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []User
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.CreatedAt); err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, nil
+}
+
+// UpdateUserRole изменяет роль пользователя
+func (r *UserRepository) UpdateUserRole(id int, role int) error {
+	_, err := r.DB.Exec(`UPDATE users SET role = ? WHERE id = ?`, role, id)
+	return err
+}
