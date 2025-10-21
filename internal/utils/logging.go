@@ -12,18 +12,19 @@ import (
 )
 
 const (
-	PreferredSDPath = "/mnt/mmcblk0p1/logs" // абсолютный путь
-	LocalLogPath    = "./logs"
-
+	PreferredSDPath  = "/mnt/mmcblk0p1/logs" // путь SD-карты
+	LocalLogPath     = "./logs"              // локальная директория
 	LogFileName      = "api.log"
 	MaxLogSizeBytes  = 5 * 1024 * 1024 // 5 MB
-	MaxArchivedFiles = 5
-	MinFreeSpaceMB   = 6
+	MaxArchivedFiles = 5               // максимум старых логов
+	MinFreeSpaceMB   = 6               // минимум свободного места
 )
 
 var logDir string
 
-//Инициализация каталога
+// =============================
+//   Инициализация каталога логов
+// =============================
 
 func ChooseLogDir() string {
 	sdRoot := "/mnt/mmcblk0p1"
@@ -31,14 +32,13 @@ func ChooseLogDir() string {
 
 	// Проверяем, смонтирована ли SD-карта
 	if fi, err := os.Stat(sdRoot); err == nil && fi.IsDir() {
-		// Создаём каталог logs на SD, если карты действительно есть
 		if err := ensureDir(sdLogs); err == nil {
 			logDir = sdLogs
 			return logDir
 		}
 	}
 
-	// Иначе fallback в локальную память
+	// Фолбэк в локальную директорию
 	_ = ensureDir(LocalLogPath)
 	logDir = LocalLogPath
 	return logDir
@@ -67,7 +67,9 @@ func LogFilePath() string {
 	return filepath.Join(LogDir(), LogFileName)
 }
 
-// Кастомный writer (название для файла архива с логами)
+// =============================
+//   Реализация RotatingWriter
+// =============================
 
 type RotatingWriter struct {
 	file *os.File
@@ -79,9 +81,8 @@ func NewRotatingWriter() (*RotatingWriter, error) {
 
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
-		return nil, fmt.Errorf("open log file: w%", err)
+		return nil, fmt.Errorf("open log file: %w", err)
 	}
-
 	return &RotatingWriter{file: f}, nil
 }
 
@@ -91,15 +92,21 @@ func (w *RotatingWriter) Write(p []byte) (n int, err error) {
 		return 0, err
 	}
 
-	// Проверяем свободное место
+	// Проверяем место на диске
 	if err := checkDiskSpaceAndCleanup(); err != nil {
-		log.Warn().Str("module", "system").Msgf("Low disk space: %v", err)
+		log.Error().
+			Str("module", "system").
+			Msgf("Insufficient disk space: %v — skipping log write", err)
+		// Не пишем, чтобы не добить диск
+		return 0, nil
 	}
 
-	// Проверка на размер файла
+	// Проверяем размер файла
 	if stat.Size()+int64(len(p)) > MaxLogSizeBytes {
 		if err := w.rotate(); err != nil {
-			log.Error().Str("module", "system").Msgf("Log rotation failed: %v", err)
+			log.Error().
+				Str("module", "system").
+				Msgf("Log rotation failed: %v", err)
 		}
 	}
 
@@ -142,8 +149,11 @@ func (w *RotatingWriter) Close() error {
 	return nil
 }
 
-// Управление архивами
+// =============================
+//   Очистка старых логов
+// =============================
 
+// cleanupOldLogs — удаляет только архивы вида api.YYYYMMDDTHHMMSS.log.
 func cleanupOldLogs() {
 	dir := LogDir()
 	entries, _ := os.ReadDir(dir)
@@ -155,8 +165,9 @@ func cleanupOldLogs() {
 		}
 		name := e.Name()
 		if name == LogFileName {
-			continue
+			continue // не трогаем текущий api.log
 		}
+		// удаляем только наши архивы вида api.XXXXXX.log
 		if filepath.Ext(name) == ".log" && len(name) > 8 && name[:4] == "api." {
 			logs = append(logs, e)
 		}
@@ -177,7 +188,9 @@ func cleanupOldLogs() {
 	}
 }
 
-// Проверка свободного места
+// =============================
+//   Проверка свободного места
+// =============================
 
 func checkDiskSpaceAndCleanup() error {
 	var stat syscall.Statfs_t
@@ -191,16 +204,30 @@ func checkDiskSpaceAndCleanup() error {
 		log.Warn().
 			Str("module", "system").
 			Float64("free_mb", freeMB).
-			Msg("Low disk space: removing old log files")
+			Msg("Low disk space detected: attempting cleanup")
 
+		// Пробуем удалить старые архивы
 		cleanupOldLogs()
+
+		// Проверим ещё раз после очистки
+		if err := syscall.Statfs(LogDir(), &stat); err != nil {
+			return err
+		}
+		freeBytes = stat.Bavail * uint64(stat.Bsize)
+		freeMB = float64(freeBytes) / (1024 * 1024)
+
+		if freeMB < MinFreeSpaceMB {
+			// Всё ещё мало — сообщаем об ошибке и блокируем запись
+			return fmt.Errorf("low disk space (%.2f MB free, minimum %.2f MB required)",
+				freeMB, MinFreeSpaceMB)
+		}
 	}
 	return nil
 }
 
-// ============================
+// =============================
 //   Вспомогательные функции
-// ============================
+// =============================
 
 func FormatTS(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
