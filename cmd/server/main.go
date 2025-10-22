@@ -82,7 +82,7 @@ func main() {
 			// --- System logs ---
 			r.Get("/logs", handlers.ListAllLogs)
 			r.Get("/logs/download-all", handlers.DownloadAllLogs)
-			r.Get("/logs/download", handlers.DownloadOneLog)
+			r.Get("/logs/download", handlers.DownloadSelectedLogs)
 			r.Get("/logs/tail", handlers.TailUnified)
 
 			// --- User management (admin panel) ---
