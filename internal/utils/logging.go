@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"syscall"
 	"time"
 
@@ -12,8 +13,8 @@ import (
 )
 
 const (
-	PreferredSDPath  = "/mnt/mmcblk0p1/logs" // путь SD-карты
-	LocalLogPath     = "./logs"              // локальная директория
+	PreferredSDPath  = "/mnt"       // теперь мы ищем папку tir_logs внутри /mnt
+	LocalLogPath     = "./tir_logs" // локальная директория
 	LogFileName      = "api.log"
 	MaxLogSizeBytes  = 5 * 1024 * 1024 // 5 MB
 	MaxArchivedFiles = 5               // максимум старых логов
@@ -26,19 +27,30 @@ var logDir string
 //   Инициализация каталога логов
 // =============================
 
+// ChooseLogDir — выбирает место хранения логов (tir_logs локально или на SD)
 func ChooseLogDir() string {
-	sdRoot := "/mnt/mmcblk0p1"
-	sdLogs := filepath.Join(sdRoot, "logs")
+	// Проверяем, есть ли SD-карта и на ней папка tir_logs
+	var sdLogs string
 
-	// Проверяем, смонтирована ли SD-карта
-	if fi, err := os.Stat(sdRoot); err == nil && fi.IsDir() {
+	filepath.WalkDir(PreferredSDPath, func(p string, d os.DirEntry, err error) error {
+		if err != nil || !d.IsDir() {
+			return nil
+		}
+		if strings.HasSuffix(p, "tir_logs") {
+			sdLogs = p
+			return filepath.SkipDir // нашли — выходим
+		}
+		return nil
+	})
+
+	if sdLogs != "" {
 		if err := ensureDir(sdLogs); err == nil {
 			logDir = sdLogs
 			return logDir
 		}
 	}
 
-	// Фолбэк в локальную директорию
+	// Фолбэк — локальная папка tir_logs рядом с бинарником
 	_ = ensureDir(LocalLogPath)
 	logDir = LocalLogPath
 	return logDir
@@ -97,7 +109,7 @@ func (w *RotatingWriter) Write(p []byte) (n int, err error) {
 		log.Error().
 			Str("module", "system").
 			Msgf("Insufficient disk space: %v — skipping log write", err)
-		// Не пишем, чтобы не добить диск
+		// Не пишем, чтобы не забить диск
 		return 0, nil
 	}
 

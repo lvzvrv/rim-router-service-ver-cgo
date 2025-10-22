@@ -60,10 +60,9 @@ func ListAllLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 // =============================
-//   Архив всех логов
+//   Архив всех логов (группировка по root)
 // =============================
 
-// GET /api/v2/logs/download-all — объединяет все логи в ZIP
 func DownloadAllLogs(w http.ResponseWriter, r *http.Request) {
 	files, err := utils.DiscoverLogFiles(true)
 	if err != nil || len(files) == 0 {
@@ -82,7 +81,8 @@ func DownloadAllLogs(w http.ResponseWriter, r *http.Request) {
 		defer zw.Close()
 
 		for _, f := range files {
-			if err := addFileToZip(zw, f.Path, f.Dir); err != nil {
+			// добавляем файл в архив с указанием корня
+			if err := addFileToZipWithRoot(zw, f.Path, f.RootID); err != nil {
 				log.Warn().Err(err).Str("file", f.Path).Msg("zip add failed")
 			}
 		}
@@ -95,7 +95,7 @@ func DownloadAllLogs(w http.ResponseWriter, r *http.Request) {
 //   Просмотр хвоста лога
 // =============================
 
-// GET /api/v2/logs/tail?name=api.log&lines=200&format=json|raw[&root=local|sd|media-0]
+// GET /api/v2/logs/tail?name=api.log&lines=200&format=json|raw&root=local
 func TailUnified(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	name := strings.TrimSpace(q.Get("name"))
@@ -103,27 +103,13 @@ func TailUnified(w http.ResponseWriter, r *http.Request) {
 	format := strings.ToLower(q.Get("format"))
 	rootHint := strings.TrimSpace(q.Get("root"))
 
-	if name == "" {
-		sendJSON(w, http.StatusBadRequest, "missing name", nil)
+	if name == "" || rootHint == "" {
+		sendJSON(w, http.StatusBadRequest, "name and root required", nil)
 		return
 	}
 
 	li, err := utils.ResolveOneByName(name, rootHint)
 	if err != nil {
-		if strings.Contains(err.Error(), "ambiguous") {
-			cands, _ := utils.FindLogsByName(name)
-			type choice struct {
-				Root string `json:"root"`
-				Dir  string `json:"dir"`
-				Path string `json:"path"`
-			}
-			var opts []choice
-			for _, c := range cands {
-				opts = append(opts, choice{Root: c.RootID, Dir: c.Dir, Path: c.Path})
-			}
-			sendJSON(w, http.StatusConflict, "multiple matches; specify root", opts)
-			return
-		}
 		sendJSON(w, http.StatusNotFound, err.Error(), nil)
 		return
 	}
@@ -176,14 +162,14 @@ func TailUnified(w http.ResponseWriter, r *http.Request) {
 }
 
 // =============================
-//   Скачать выбранные логи
+//   Скачать выбранные логи (root обязателен)
 // =============================
 
 // POST /api/v2/logs/download
-// Body: {"files":[{"name":"api.log","root":"local"},{"name":"Modbus_BEMP.log"}]}
+// Body: {"files":[{"name":"api.log","root":"local"}]}
 type DownloadRequestItem struct {
-	Name string `json:"name"`
-	Root string `json:"root,omitempty"`
+	Name string `json:"name"` // обязательное поле
+	Root string `json:"root"` // теперь обязательное
 }
 type DownloadRequest struct {
 	Files []DownloadRequestItem `json:"files"`
@@ -198,38 +184,22 @@ func DownloadSelectedLogs(w http.ResponseWriter, r *http.Request) {
 
 	type resolved struct {
 		Path string
-		Dir  string
 		Name string
+		Root string
 	}
 	var toZip []resolved
 
 	for _, item := range req.Files {
-		if strings.TrimSpace(item.Name) == "" {
-			continue
+		if strings.TrimSpace(item.Name) == "" || strings.TrimSpace(item.Root) == "" {
+			sendJSON(w, http.StatusBadRequest, "each file requires name and root", nil)
+			return
 		}
 		li, err := utils.ResolveOneByName(item.Name, strings.TrimSpace(item.Root))
 		if err != nil {
-			if strings.Contains(err.Error(), "ambiguous") {
-				cands, _ := utils.FindLogsByName(item.Name)
-				type choice struct {
-					Name string `json:"name"`
-					Root string `json:"root"`
-					Dir  string `json:"dir"`
-					Path string `json:"path"`
-				}
-				var opts []choice
-				for _, c := range cands {
-					opts = append(opts, choice{
-						Name: c.Name, Root: c.RootID, Dir: c.Dir, Path: c.Path,
-					})
-				}
-				sendJSON(w, http.StatusConflict, "multiple matches; specify root for "+item.Name, opts)
-				return
-			}
-			sendJSON(w, http.StatusNotFound, "not found: "+item.Name, nil)
+			sendJSON(w, http.StatusNotFound, "not found: "+item.Name+" ("+item.Root+")", nil)
 			return
 		}
-		toZip = append(toZip, resolved{Path: li.Path, Dir: li.Dir, Name: li.Name})
+		toZip = append(toZip, resolved{Path: li.Path, Name: li.Name, Root: li.RootID})
 	}
 
 	if len(toZip) == 0 {
@@ -247,7 +217,7 @@ func DownloadSelectedLogs(w http.ResponseWriter, r *http.Request) {
 		zw := zip.NewWriter(pw)
 		defer zw.Close()
 		for _, f := range toZip {
-			if err := addFileToZip(zw, f.Path, f.Dir); err != nil {
+			if err := addFileToZipWithRoot(zw, f.Path, f.Root); err != nil {
 				log.Warn().Err(err).Str("file", f.Path).Msg("zip add failed")
 			}
 		}
@@ -260,25 +230,22 @@ func DownloadSelectedLogs(w http.ResponseWriter, r *http.Request) {
 //   Вспомогательные функции
 // =============================
 
-func addFileToZip(zw *zip.Writer, fullPath, baseDir string) error {
+// добавляет файл в архив в подпапку по имени root (например local/api.log)
+func addFileToZipWithRoot(zw *zip.Writer, fullPath, root string) error {
 	fi, err := os.Stat(fullPath)
 	if err != nil {
 		return err
 	}
-
 	rc, err := os.Open(fullPath)
 	if err != nil {
 		return err
 	}
 	defer rc.Close()
 
-	rel, err := filepath.Rel(baseDir, fullPath)
-	if err != nil {
-		rel = filepath.Base(fullPath)
-	}
+	nameInZip := filepath.ToSlash(filepath.Join(root, filepath.Base(fullPath)))
 
 	h := &zip.FileHeader{
-		Name:     filepath.ToSlash(rel),
+		Name:     nameInZip,
 		Method:   zip.Deflate,
 		Modified: fi.ModTime(),
 	}

@@ -25,13 +25,13 @@ type LogInfo struct {
 	Dir      string    `json:"dir"`
 	Size     int64     `json:"size"`
 	Modified time.Time `json:"modified"`
-	RootID   string    `json:"root_id"` // идентификатор корневой директории (local/sd/media-x)
+	RootID   string    `json:"root_id"` // идентификатор корневой директории (local/sd)
 }
 
 // Root описывает корень, где могут лежать логи.
 type Root struct {
-	ID   string // "local", "sd", "media-0", "media-1", ...
-	Path string // абсолютный путь к папке logs
+	ID   string // "local", "sd"
+	Path string // абсолютный путь к папке tir_logs
 }
 
 // ============================
@@ -39,39 +39,36 @@ type Root struct {
 // ============================
 
 // ListRoots — возвращает ограниченный список директорий, где могут храниться логи приложения.
-// 1) ./logs рядом с исполняемым файлом (ID: "local")
-// 2) /mnt/mmcblk0p1/logs — стандартный путь для SD-карты (ID: "sd")
-// 3) /media/*/logs и /run/media/*/logs — автосмонтированные носители (ID: "media-<index>")
+//  1. ./tir_logs рядом с исполняемым файлом (ID: "local")
+//  2. /mnt/*/tir_logs — поиск по всем монтированным разделам SD/USB (ID: "sd")
+//     (раньше был только /mnt/mmcblk0p1/logs, теперь ищем везде, но только tir_logs)
+//     /media и /run/media исключены.
 func ListRoots() []Root {
 	var roots []Root
 
 	// 1. Локальная директория рядом с бинарником
 	if exe, err := os.Executable(); err == nil {
 		exeDir := filepath.Dir(exe)
-		local := filepath.Join(exeDir, "logs")
+		local := filepath.Join(exeDir, "tir_logs")
+		_ = os.MkdirAll(local, 0o755) // создаём при необходимости
 		roots = append(roots, Root{ID: "local", Path: local})
 	}
 
-	// 2. Стандартный путь SD-карты для embedded-устройств
-	if _, err := os.Stat("/mnt/mmcblk0p1"); err == nil {
-		roots = append(roots, Root{ID: "sd", Path: "/mnt/mmcblk0p1/logs"})
-	}
-
-	// 3. Дополнительные варианты автоподключения SD/USB
-	// ВНИМАНИЕ: мы не сканируем всю систему; мы только собираем явные кандидаты папок logs.
-	patterns := []string{"/media/*/logs", "/run/media/*/logs"}
-	mi := 0
-	for _, pattern := range patterns {
-		if matches, _ := filepath.Glob(pattern); len(matches) > 0 {
-			// сортируем для стабильности ID
-			sort.Strings(matches)
-			for _, m := range matches {
-				roots = append(roots, Root{ID: "media-" + strconvI(mi), Path: m})
-				mi++
-			}
+	// 2. Поиск tir_logs на SD-карте или любом разделе в /mnt
+	filepath.WalkDir("/mnt", func(p string, d os.DirEntry, err error) error {
+		if err != nil || !d.IsDir() {
+			return nil
 		}
-	}
+		// Ищем только папки tir_logs
+		if strings.HasSuffix(p, "tir_logs") {
+			roots = append(roots, Root{ID: "sd", Path: p})
+			return filepath.SkipDir // нашли — не спускаемся глубже
+		}
+		return nil
+	})
 
+	// Сортируем, чтобы порядок всегда был стабильным
+	sort.SliceStable(roots, func(i, j int) bool { return roots[i].Path < roots[j].Path })
 	return roots
 }
 
@@ -113,8 +110,6 @@ func WithinAllowedRoots(p string, roots []string) bool {
 
 // strconvI — маленькая утилита, чтобы не тянуть strconv везде
 func strconvI(i int) string {
-	// минимальная реализация без импорта strconv для компактности
-	// (если хочешь — можно заменить на strconv.Itoa)
 	digits := "0123456789"
 	if i == 0 {
 		return "0"
@@ -137,7 +132,6 @@ func DiscoverLogFiles(includeTimestamped bool) ([]LogInfo, error) {
 	var out []LogInfo
 
 	for _, root := range roots {
-		// WalkDir по конкретной папке logs; если её нет — просто пропустим
 		filepath.WalkDir(root.Path, func(p string, d os.DirEntry, err error) error {
 			if err != nil || d.IsDir() {
 				return nil
@@ -179,32 +173,20 @@ func FindLogsByName(name string) ([]LogInfo, error) {
 			out = append(out, li)
 		}
 	}
-	// стабильный порядок: сначала local, затем sd, затем media-*
+	// стабильный порядок: сначала local, затем sd
 	sort.SliceStable(out, func(i, j int) bool {
-		ri, rj := out[i].RootID, out[j].RootID
-		if ri == rj {
+		if out[i].RootID == out[j].RootID {
 			return out[i].Modified.After(out[j].Modified)
 		}
-		// приоритет по ID
-		order := func(id string) int {
-			switch {
-			case id == "local":
-				return 0
-			case id == "sd":
-				return 1
-			case strings.HasPrefix(id, "media-"):
-				return 2
-			default:
-				return 3
-			}
+		if out[i].RootID == "local" {
+			return true
 		}
-		return order(ri) < order(rj)
+		return false
 	})
 	return out, nil
 }
 
-// ResolveOneByName — выбрать один файл по имени и optional rootHint ("local","sd","media-0"...).
-// Если дубликатов несколько и hint не задан, вернёт ошибку.
+// ResolveOneByName — root обязателен.
 func ResolveOneByName(name, rootHint string) (LogInfo, error) {
 	list, err := FindLogsByName(name)
 	if err != nil {
@@ -214,17 +196,14 @@ func ResolveOneByName(name, rootHint string) (LogInfo, error) {
 		return LogInfo{}, errors.New("log not found")
 	}
 	if rootHint == "" {
-		if len(list) > 1 {
-			return LogInfo{}, errors.New("ambiguous name; multiple matches")
-		}
-		return list[0], nil
+		return LogInfo{}, errors.New("root is required for this operation")
 	}
 	for _, li := range list {
 		if li.RootID == rootHint {
 			return li, nil
 		}
 	}
-	return LogInfo{}, errors.New("no match for given root hint")
+	return LogInfo{}, errors.New("no match for given root")
 }
 
 // OpenSafe — безопасное открытие файла из разрешённых директорий.

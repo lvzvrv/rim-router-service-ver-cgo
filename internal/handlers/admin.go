@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"rim-router-service-ver-cgo/internal/models"
+	"rim-router-service-ver-cgo/internal/utils" // ✅ добавили
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog"
@@ -22,10 +23,11 @@ type AdminHandler struct {
 
 // NewAdminHandler создаёт отдельный логгер для api.log
 func NewAdminHandler(userRepo *models.UserRepository) *AdminHandler {
-	// создаём директорию логов, если её нет
-	_ = os.MkdirAll("logs", 0o755)
+	// ✅ используем систему логов проекта
+	logDir := utils.LogDir()
+	logFile := filepath.Join(logDir, "api.log")
 
-	logFile := filepath.Join("logs", "api.log")
+	// создаём файл, если его нет
 	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		panic("cannot open api.log: " + err.Error())
