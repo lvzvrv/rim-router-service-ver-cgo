@@ -15,7 +15,7 @@
 
 Используется для компиляции исходного кода.
 
-* Минимальная версия: **Go 1.21+**
+* Минимальная версия: **Go 1.24+**
 * Проверка установки:
 
   ```bash
@@ -27,13 +27,6 @@
   sudo apt install golang-go -y       # Debian/Ubuntu
   # или
   brew install go                     # macOS
-  ```
-* Установка вручную (если требуется конкретная версия):
-
-  ```bash
-  wget https://go.dev/dl/go1.22.2.linux-amd64.tar.gz
-  sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.22.2.linux-amd64.tar.gz
-  export PATH=$PATH:/usr/local/go/bin
   ```
 
 #### 2. **UPX (Ultimate Packer for eXecutables)**
