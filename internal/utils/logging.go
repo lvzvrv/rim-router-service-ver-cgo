@@ -18,7 +18,7 @@ const (
 	LogFileName      = "api.log"
 	MaxLogSizeBytes  = 5 * 1024 * 1024 // 5 MB
 	MaxArchivedFiles = 5               // максимум старых логов
-	MinFreeSpaceMB   = 6               // минимум свободного места
+	MinFreeSpaceMB   = 6.0             // минимум свободного места
 )
 
 var logDir string
