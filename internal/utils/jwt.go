@@ -11,12 +11,30 @@ import (
 	"github.com/golang-jwt/jwt"
 )
 
+// ============================
+//   Типы
+// ============================
+
 type Claims struct {
 	UserID   int64  `json:"user_id"`
 	Username string `json:"username"`
 	Role     int    `json:"role"`
 	jwt.StandardClaims
 }
+
+// ============================
+//   Хуки для тестов
+// ============================
+
+// Позволяет подменять поведение токенов в тестах
+var (
+	GenerateAccessTokenFunc = GenerateAccessToken
+	ValidateTokenFunc       = ValidateToken
+)
+
+// ============================
+//   Реализация
+// ============================
 
 func GenerateAccessToken(user *models.User) (string, error) {
 	jwtConfig := config.GetJWTConfig()
@@ -54,6 +72,10 @@ func ValidateToken(tokenString string) (*Claims, error) {
 
 	return claims, nil
 }
+
+// ============================
+//   Secure random helpers
+// ============================
 
 // Случайная строка длиной 64 символа, 256 бит энтропии
 func GenerateSecureToken() (string, error) {

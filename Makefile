@@ -5,6 +5,7 @@
 APP_NAME := router-service
 BUILD_DIR := build
 LOG_DIR := logs
+TEST_LOG_DIR := internal/handlers/tir_logs
 OUTPUT := $(BUILD_DIR)/$(APP_NAME)
 SRC := ./cmd/server
 GO_FLAGS := -ldflags="-s -w" -trimpath
@@ -51,15 +52,32 @@ clean:
 	@echo "🧹 Cleaning build artifacts and logs..."
 	@rm -rf $(BUILD_DIR)
 	@rm -rf $(LOG_DIR)
+	@rm -rf $(TEST_LOG_DIR)
 	@echo "✅ Clean complete."
 
 # -------------------------------
-# Run tests (if present)
+# Run all Go tests and cleanup logs
 # -------------------------------
 .PHONY: test
 test:
-	@echo "🧪 Running tests..."
+	@echo "🧪 Running all tests..."
 	@$(GO) test ./... -v
+	@echo "🧹 Removing temporary test logs..."
+	@if [ -d "$(TEST_LOG_DIR)" ]; then rm -rf $(TEST_LOG_DIR); fi
+	@echo "✅ All tests completed successfully and logs cleaned."
+
+# -------------------------------
+# Run tests with cache cleared first
+# -------------------------------
+.PHONY: test-clean
+test-clean:
+	@echo "♻️  Cleaning Go test cache..."
+	@$(GO) clean -testcache
+	@echo "🧪 Running fresh tests..."
+	@$(GO) test ./... -v
+	@echo "🧹 Removing temporary test logs..."
+	@if [ -d "$(TEST_LOG_DIR)" ]; then rm -rf $(TEST_LOG_DIR); fi
+	@echo "✅ Fresh tests completed successfully and logs cleaned."
 
 # -------------------------------
 # Cross-compile for Linux (CGO)

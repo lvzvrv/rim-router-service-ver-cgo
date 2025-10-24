@@ -21,7 +21,10 @@ const (
 	MinFreeSpaceMB   = 6.0             // минимум свободного места
 )
 
-var logDir string
+var (
+	logDir     string
+	LogDirFunc = LogDir // ✅ хук для тестов
+)
 
 // =============================
 //   Инициализация каталога логов
@@ -76,7 +79,7 @@ func LogDir() string {
 }
 
 func LogFilePath() string {
-	return filepath.Join(LogDir(), LogFileName)
+	return filepath.Join(LogDirFunc(), LogFileName)
 }
 
 // =============================
