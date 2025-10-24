@@ -31,13 +31,14 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		tokenString := parts[1]
-		claims, err := utils.ValidateToken(tokenString)
+
+		// ✅ теперь используем хук вместо прямого вызова
+		claims, err := utils.ValidateTokenFunc(tokenString)
 		if err != nil {
 			http.Error(w, `{"code": 401, "message": "Invalid token"}`, http.StatusUnauthorized)
 			return
 		}
 
-		// Добавляем claims в контекст
 		ctx := context.WithValue(r.Context(), UserContextKey, claims)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
