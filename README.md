@@ -1,6 +1,6 @@
-#  ⚙️ Документация проекта 
+#			  ⚙️ **Документация проекта**
 
-## 🧰 Сборка и запуск проекта rim-router-service-ver-cgo
+# 🧰 Сборка и запуск 
 
 Файл автоматизирует сборку, сжатие, тестирование и очистку проекта.
 Ниже описано, какие инструменты необходимы для успешной компиляции и как их установить.
@@ -60,14 +60,15 @@
 
 ### 🧱 Основные команды Makefile
 
-| Команда      | Описание                                                                            |
-| ------------ | ----------------------------------------------------------------------------------- |
-| `make build` | Собирает оптимизированный бинарник (без отладочной информации, минимальный размер). |
-| `make upx`   | Сжимает бинарник с помощью UPX (`--best --lzma`).                                   |
-| `make run`   | Запускает сервер напрямую через `go run`.                                           |
-| `make test`  | Запускает все тесты проекта.                                                        |
-| `make clean` | Удаляет директории `build/` и `logs/`.                                              |
-| `make linux` | Кросс-компиляция под Linux `amd64` с поддержкой CGO.                                |
+| Команда           | Описание                                                                            |
+| ----------------- | ----------------------------------------------------------------------------------- |
+| `make build`      | Собирает оптимизированный бинарник (без отладочной информации, минимальный размер). |
+| `make upx`        | Сжимает бинарник с помощью UPX (`--best --lzma`).                                   |
+| `make run`        | Запускает сервер напрямую через `go run`.                                           |
+| `make test`       | Запускает все тесты проекта.                                                        |
+| `make test-clean` | Запускает все тесты проекта (без кэша).                                             |
+| `make clean`      | Удаляет директории `build/` и `logs/`.                                              |
+| `make linux`      | Кросс-компиляция под Linux `amd64` с поддержкой CGO.                                |
 
 ---
 
@@ -170,6 +171,169 @@ rim-router-service-ver-cgo
 ├── go.mod                           # Зависимости и имя модуля
 └── go.sum                           # Контрольные суммы зависимостей
 ```
+
+# 🧪 Тестирование проекта
+Проект покрыт модульными и интеграционными тестами,
+проверяющими корректность работы API, middleware, бизнес-логики, JWT и утилит.
+
+Тесты написаны на `Go` с использованием стандартной библиотеки `testing`
+и фреймворка `testify` для удобных ассертов и моков.
+
+| Пакет                     | Описание и сценарии тестирования                                                                                                                                                                                                                                                                                   | Пример тестов                                                                                                               |   Статус   |
+| :------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------- | :--------: |
+| **`internal/utils`**      | Тесты низкоуровневых утилит и криптографии:<br>• Генерация и валидация JWT токенов (`GenerateAccessToken`, `ValidateToken`)<br>• Проверка срока действия и подписи<br>• Генерация криптостойких refresh-токенов (`GenerateSecureToken`)<br>• Проверка функций форматирования (`FormatTS`, `HumanSize`)             | `TestGenerateAndValidateAccessToken`, `TestValidateToken_Expired`, `TestGenerateSecureToken`                                | ✅ Пройдены |
+| **`internal/models`**     | Тесты доступа к данным и репозиториев:<br>• Работа с пользователями: создание, поиск, обновление ролей<br>• Проверка существования пользователя / администратора<br>• Работа с refresh-токенами: сохранение, удаление, выборка<br>• Используются in-memory SQLite моки                                             | `TestCreateUser`, `TestUserExists`, `TestUpdateUserRole`, `TestSaveRefreshToken`                                            | ✅ Пройдены |
+| **`internal/handlers`**   | Тесты HTTP-эндпоинтов приложения:<br>• Регистрация, авторизация, обновление токенов<br>• Логаут и валидация cookie refresh-токенов<br>• Админские эндпоинты (`/api/v1/admin/users`, `/role`)<br>• Работа с логами: список, архив, хвост, скачивание<br>• Проверка корректных кодов ответов и JSON-ответов          | `TestRegister_Success`, `TestLogin_Success`, `TestRefresh_Success`, `TestListAllLogs_Success`, `TestTailUnified_JSONFormat` | ✅ Пройдены |
+| **`internal/middleware`** | Тесты промежуточных обработчиков:<br>• JWT-проверка в `AuthMiddleware` (отсутствие токена, неверный формат, неверная подпись, валидный токен)<br>• Проверка ролей пользователей в `RoleMiddleware` (недостаточные права, корректные права)<br>• Извлечение данных пользователя из контекста (`GetUserFromContext`) | `TestAuthMiddleware_InvalidToken`, `TestAuthMiddleware_ValidToken`, `TestRoleMiddleware_SufficientRole`                     | ✅ Пройдены |
+
+### Пример вывода тестов
+```bash
+/rim-router-service-ver-cgo$ make test-clean
+♻️  Cleaning Go test cache...
+🧪 Running fresh tests...
+?       rim-router-service-ver-cgo/cmd/server   [no test files]
+?       rim-router-service-ver-cgo/internal/config      [no test files]
+?       rim-router-service-ver-cgo/internal/db  [no test files]
+=== RUN   TestListUsers_Success
+--- PASS: TestListUsers_Success (0.00s)
+=== RUN   TestListUsers_DBError
+--- PASS: TestListUsers_DBError (0.00s)
+=== RUN   TestUpdateUserRole_Success
+--- PASS: TestUpdateUserRole_Success (0.00s)
+=== RUN   TestUpdateUserRole_InvalidID
+--- PASS: TestUpdateUserRole_InvalidID (0.00s)
+=== RUN   TestUpdateUserRole_InvalidJSON
+--- PASS: TestUpdateUserRole_InvalidJSON (0.00s)
+=== RUN   TestUpdateUserRole_InvalidRoleValue
+--- PASS: TestUpdateUserRole_InvalidRoleValue (0.00s)
+=== RUN   TestUpdateUserRole_DBError
+--- PASS: TestUpdateUserRole_DBError (0.00s)
+=== RUN   TestRegister_Success
+{"level":"info","module":"auth","user":"newuser","time":"2025-10-24T11:29:07+07:00","message":"User registered successfully"}
+--- PASS: TestRegister_Success (0.05s)
+=== RUN   TestRegister_UserExists
+{"level":"warn","module":"auth","user":"john","time":"2025-10-24T11:29:07+07:00","message":"Attempt to register existing user"}
+--- PASS: TestRegister_UserExists (0.00s)
+=== RUN   TestRegister_InvalidUsername
+--- PASS: TestRegister_InvalidUsername (0.00s)
+=== RUN   TestRegister_ShortPassword
+--- PASS: TestRegister_ShortPassword (0.00s)
+=== RUN   TestRegister_DBError
+{"level":"error","module":"auth","user":"alex","error":"sql: connection is already closed","time":"2025-10-24T11:29:07+07:00","message":"Database error during registration"}
+--- PASS: TestRegister_DBError (0.00s)
+=== RUN   TestLogin_Success
+{"level":"info","module":"auth","user":"tester","time":"2025-10-24T11:29:07+07:00","message":"User logged in successfully"}
+--- PASS: TestLogin_Success (0.10s)
+=== RUN   TestLogin_UserNotFound
+{"level":"warn","module":"auth","user":"ghost","time":"2025-10-24T11:29:07+07:00","message":"User not found during login"}
+--- PASS: TestLogin_UserNotFound (0.00s)
+=== RUN   TestLogin_InvalidPassword
+{"level":"warn","module":"auth","user":"john","time":"2025-10-24T11:29:07+07:00","message":"Invalid password attempt"}
+--- PASS: TestLogin_InvalidPassword (0.10s)
+=== RUN   TestRefresh_Success
+{"level":"debug","module":"auth","user":"user","time":"2025-10-24T11:29:07+07:00","message":"Refresh token rotated"}
+--- PASS: TestRefresh_Success (0.00s)
+=== RUN   TestRefresh_InvalidToken
+{"level":"warn","module":"auth","time":"2025-10-24T11:29:07+07:00","message":"Invalid or expired refresh token"}
+--- PASS: TestRefresh_InvalidToken (0.00s)
+=== RUN   TestLogout_Success
+{"level":"info","module":"auth","time":"2025-10-24T11:29:07+07:00","message":"User logged out"}
+--- PASS: TestLogout_Success (0.00s)
+=== RUN   TestListAllLogs_Success
+--- PASS: TestListAllLogs_Success (0.00s)
+=== RUN   TestDownloadSelectedLogs_Success
+--- PASS: TestDownloadSelectedLogs_Success (0.00s)
+=== RUN   TestDownloadSelectedLogs_InvalidBody
+--- PASS: TestDownloadSelectedLogs_InvalidBody (0.00s)
+=== RUN   TestTailUnified_JSONFormat
+--- PASS: TestTailUnified_JSONFormat (0.00s)
+=== RUN   TestTailUnified_RawFormat
+--- PASS: TestTailUnified_RawFormat (0.00s)
+=== RUN   TestTailUnified_MissingParams
+--- PASS: TestTailUnified_MissingParams (0.00s)
+=== RUN   TestAddFileToZipWithRoot
+--- PASS: TestAddFileToZipWithRoot (0.00s)
+=== RUN   TestParseIntDefault
+--- PASS: TestParseIntDefault (0.00s)
+PASS
+ok      rim-router-service-ver-cgo/internal/handlers    0.251s
+=== RUN   TestAuthMiddleware_NoHeader
+--- PASS: TestAuthMiddleware_NoHeader (0.00s)
+=== RUN   TestAuthMiddleware_InvalidFormat
+--- PASS: TestAuthMiddleware_InvalidFormat (0.00s)
+=== RUN   TestAuthMiddleware_InvalidToken
+--- PASS: TestAuthMiddleware_InvalidToken (0.00s)
+=== RUN   TestAuthMiddleware_ValidToken
+--- PASS: TestAuthMiddleware_ValidToken (0.00s)
+=== RUN   TestRoleMiddleware_NoUserInContext
+--- PASS: TestRoleMiddleware_NoUserInContext (0.00s)
+=== RUN   TestRoleMiddleware_InsufficientRole
+--- PASS: TestRoleMiddleware_InsufficientRole (0.00s)
+=== RUN   TestRoleMiddleware_SufficientRole
+--- PASS: TestRoleMiddleware_SufficientRole (0.00s)
+=== RUN   TestGetUserFromContext
+=== RUN   TestGetUserFromContext/valid_context
+=== RUN   TestGetUserFromContext/empty_context
+--- PASS: TestGetUserFromContext (0.00s)
+    --- PASS: TestGetUserFromContext/valid_context (0.00s)
+    --- PASS: TestGetUserFromContext/empty_context (0.00s)
+PASS
+ok      rim-router-service-ver-cgo/internal/middleware  0.003s
+=== RUN   TestSaveRefreshToken
+--- PASS: TestSaveRefreshToken (0.00s)
+=== RUN   TestGetRefreshToken
+--- PASS: TestGetRefreshToken (0.00s)
+=== RUN   TestGetRefreshToken_NotFound
+--- PASS: TestGetRefreshToken_NotFound (0.00s)
+=== RUN   TestDeleteRefreshToken
+--- PASS: TestDeleteRefreshToken (0.00s)
+=== RUN   TestDeleteAllForUser
+--- PASS: TestDeleteAllForUser (0.00s)
+=== RUN   TestCreateUser
+--- PASS: TestCreateUser (0.00s)
+=== RUN   TestGetUserByUsername
+--- PASS: TestGetUserByUsername (0.00s)
+=== RUN   TestGetUserByUsername_NoRows
+--- PASS: TestGetUserByUsername_NoRows (0.00s)
+=== RUN   TestUserExists
+--- PASS: TestUserExists (0.00s)
+=== RUN   TestAdminExists
+--- PASS: TestAdminExists (0.00s)
+=== RUN   TestUpdateUserRole
+--- PASS: TestUpdateUserRole (0.00s)
+=== RUN   TestGetAllUsers
+--- PASS: TestGetAllUsers (0.00s)
+PASS
+ok      rim-router-service-ver-cgo/internal/models      0.004s
+=== RUN   TestGenerateAndValidateAccessToken
+--- PASS: TestGenerateAndValidateAccessToken (0.00s)
+=== RUN   TestValidateToken_InvalidSignature
+--- PASS: TestValidateToken_InvalidSignature (0.00s)
+=== RUN   TestValidateToken_Expired
+--- PASS: TestValidateToken_Expired (0.00s)
+=== RUN   TestGenerateSecureToken
+--- PASS: TestGenerateSecureToken (0.00s)
+PASS
+ok      rim-router-service-ver-cgo/internal/utils       0.002s
+🧹 Removing temporary test logs...
+✅ Fresh tests completed successfully and logs cleaned.
+```
+
+### Как запустить тесты?
+```bash
+# Запуск всех тестов с выводом результатов
+go test ./... -v
+
+# Очистка кеша перед повторным запуском
+go clean -testcache
+
+# Запуск тестов без кэша с помощью make
+make test-clean
+
+# Запуск тестов с кэшем с помощью make (быстрее)
+make test
+```
+
 # ⚙️ Файл `main.go`
 
 Файл **`main.go`** является точкой входа в приложение и отвечает за полный цикл инициализации сервиса:
@@ -1143,15 +1307,6 @@ HumanSize(3145728) → "3.0 MB"
 
 ---
 
-### 🧠 Итог
-
-Модуль обеспечивает:
-
-* автоматический выбор места хранения логов (SD или локально),
-* безопасную запись с проверкой свободного места,
-* автоматическую ротацию и очистку старых файлов,
-* форматирование и удобное отображение размеров.
-
 ## 🧾 internal/utils/logparser.go — парсинг и чтение логов
 
 Файл содержит утилиты для чтения последних строк лог-файлов, разбора форматированных логов и потоковой передачи строк.
@@ -1164,7 +1319,7 @@ HumanSize(3145728) → "3.0 MB"
 
 * эффективного чтения последних N строк больших логов (без загрузки всего файла);
 * парсинга строк формата `[timestamp] [LEVEL] message` в структуру (JSON-совместимую map);
-* потокового чтения логов построчно через канал (для стриминга или live tail).
+* потокового чтения логов построчно через канал.
 
 ---
 
@@ -1193,7 +1348,6 @@ var (
 3. Разделяет результат по `\n` и возвращает только последние N.
 4. Очищает пустую последнюю строку, если она есть.
 
-💡 *Используется для отображения последних строк логов (например, API или Modbus) без чтения всего файла.*
 
 ---
 
@@ -1238,4 +1392,3 @@ var (
 2. Передаёт каждую строку в канал.
 3. После завершения чтения — закрывает канал.
 
-💡 *Используется для потоковой передачи логов (например, при live-трансляции логов в веб-интерфейсе или CLI).*
